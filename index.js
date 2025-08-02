@@ -82,8 +82,6 @@ client.on(Events.ChannelDelete, async (canal) => {
     const executor = entry.executor;
     if (!executor) return;
 
-    // Canal deletado não será recriado
-
     if (!exclusoesCanal.has(executor.id)) {
       exclusoesCanal.set(executor.id, { count: 1 });
       setTimeout(() => exclusoesCanal.delete(executor.id), 5 * 60 * 1000);
@@ -238,8 +236,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
       interaction.isButton() &&
       (interaction.customId === "aprovar_form" || interaction.customId === "reprovar_form")
     ) {
-      const embed = interaction.message.embeds[0];
-      const userId = embed?.footer?.text?.match(/\d+/)?.[0];
+      const embedOriginal = interaction.message.embeds[0];
+      const userId = embedOriginal?.footer?.text?.match(/\d+/)?.[0];
       if (!userId)
         return interaction.reply({
           content: "❌ Não foi possível identificar o usuário.",
@@ -260,47 +258,64 @@ client.on(Events.InteractionCreate, async (interaction) => {
         });
       }
 
-      const nomeFormatado = membro.user.username.toLowerCase().replace(/[^a-z0-9]/g, "-").slice(0, 20);
-      const canalCriado = await interaction.guild.channels.create({
-        name: `👑・${nomeFormatado}`,
-        type: ChannelType.GuildText,
-        parent: CATEGORIA_CANAIS,
-        permissionOverwrites: [
-          {
-            id: interaction.guild.id,
-            deny: [PermissionsBitField.Flags.ViewChannel],
-          },
-          {
-            id: CARGO_STAFF,
-            allow: [
-              PermissionsBitField.Flags.ViewChannel,
-              PermissionsBitField.Flags.SendMessages,
-              PermissionsBitField.Flags.ReadMessageHistory,
-            ],
-          },
-          {
-            id: membro.id,
-            allow: [
-              PermissionsBitField.Flags.ViewChannel,
-              PermissionsBitField.Flags.SendMessages,
-              PermissionsBitField.Flags.ReadMessageHistory,
-            ],
-          },
-          {
-            id: client.user.id,
-            allow: [
-              PermissionsBitField.Flags.ViewChannel,
-              PermissionsBitField.Flags.SendMessages,
-              PermissionsBitField.Flags.ManageChannels,
-            ],
-          },
-        ],
-      });
+      const embedAtualizado = EmbedBuilder.from(embedOriginal).setColor(
+        interaction.customId === "aprovar_form" ? "Green" : "Red"
+      );
 
       if (interaction.customId === "aprovar_form") {
+        const nomeFormatado = membro.user.username
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "-")
+          .slice(0, 20);
+
+        const canalCriado = await interaction.guild.channels.create({
+          name: `👑・${nomeFormatado}`,
+          type: ChannelType.GuildText,
+          parent: CATEGORIA_CANAIS,
+          permissionOverwrites: [
+            {
+              id: interaction.guild.id,
+              deny: [PermissionsBitField.Flags.ViewChannel],
+            },
+            {
+              id: CARGO_STAFF,
+              allow: [
+                PermissionsBitField.Flags.ViewChannel,
+                PermissionsBitField.Flags.SendMessages,
+                PermissionsBitField.Flags.ReadMessageHistory,
+              ],
+            },
+            {
+              id: membro.id,
+              allow: [
+                PermissionsBitField.Flags.ViewChannel,
+                PermissionsBitField.Flags.SendMessages,
+                PermissionsBitField.Flags.ReadMessageHistory,
+              ],
+            },
+            {
+              id: client.user.id,
+              allow: [
+                PermissionsBitField.Flags.ViewChannel,
+                PermissionsBitField.Flags.SendMessages,
+                PermissionsBitField.Flags.ManageChannels,
+              ],
+            },
+          ],
+        });
+
         await membro.roles.add(CARGO_APROVADO);
+
         await canalCriado.send(`🎉 Parabéns ${membro}, você foi aprovado para a Imperial Group!`);
-        await interaction.reply({
+
+        embedAtualizado.addFields({
+          name: "✅ Aprovado por",
+          value: `${interaction.user.tag} (<@${interaction.user.id}>)`,
+        });
+
+        await interaction.message.edit({ embeds: [embedAtualizado], components: [] });
+
+        return interaction.reply({
           content: "✅ Usuário aprovado e canal criado!",
           ephemeral: true,
         });
@@ -308,13 +323,19 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       if (interaction.customId === "reprovar_form") {
         await membro.roles.add(CARGO_REPROVADO);
-        await canalCriado.send(`📪 Olá ${membro}, infelizmente seu pedido foi reprovado. Qualquer dúvida, fale com a staff.`);
-        await interaction.reply({
-          content: "❌ Usuário reprovado e canal criado.",
+
+        embedAtualizado.addFields({
+          name: "❌ Reprovado por",
+          value: `${interaction.user.tag} (<@${interaction.user.id}>)`,
+        });
+
+        await interaction.message.edit({ embeds: [embedAtualizado], components: [] });
+
+        return interaction.reply({
+          content: "❌ Usuário reprovado. Cargo atribuído.",
           ephemeral: true,
         });
       }
-      return;
     }
 
     if (interaction.isButton() && interaction.customId === "abrir_ticket") {
