@@ -82,52 +82,6 @@ client.on(Events.ChannelDelete, async (canal) => {
     const executor = entry.executor;
     if (!executor) return;
 
-    await recriarCanal(canal);
-
-    if (!exclusoesCanal.has(executor.id)) {
-      exclusoesCanal.set(executor.id, { count: 1 });
-      setTimeout(() => exclusoesCanal.delete(executor.id), 5 * 60 * 1000);
-    } else {
-      const dados = exclusoesCanal.get(executor.id);
-      dados.count++;
-      exclusoesCanal.set(executor.id, dados);
-
-      if (dados.count >= 4) {
-        const membro = await guild.members.fetch(executor.id).catch(() => null);
-        if (membro && membro.bannable) {
-          await membro.ban({
-            reason: "Excluiu 4 ou mais canais em curto período",
-          });
-          const canalLogs = await client.channels.fetch(CANAL_LOGS).catch(() => null);
-          if (canalLogs?.isTextBased()) {
-            canalLogs.send(`🚨 Usuário ${executor.tag} banido por excluir vários canais.`);
-          }
-        }
-        exclusoesCanal.delete(executor.id);
-      }
-    }
-  } catch (error) {
-    console.error("Erro no evento ChannelDelete:", error);
-  }
-});
-
-async function recriarCanal(canal) {
-  const novo = await canal.guild.channels.create({
-    name: canal.name,
-    type: canal.type,
-    parent: canal.parentId,
-    topic: canal.topic,
-    nsfw: canal.nsfw,
-    position: canal.rawPosition,
-    rateLimitPerUser: canal.rateLimitPerUser,
-    permissionOverwrites: canal.permissionOverwrites.cache.map((perm) => ({
-      id: perm.id,
-      allow: perm.allow.toArray(),
-      deny: perm.deny.toArray(),
-    })),
-  });
-}
-
 client.on("messageCreate", async (msg) => {
   if (msg.author.bot) return;
 
