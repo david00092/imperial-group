@@ -82,6 +82,35 @@ client.on(Events.ChannelDelete, async (canal) => {
     const executor = entry.executor;
     if (!executor) return;
 
+    // Canal deletado não será recriado
+
+    if (!exclusoesCanal.has(executor.id)) {
+      exclusoesCanal.set(executor.id, { count: 1 });
+      setTimeout(() => exclusoesCanal.delete(executor.id), 5 * 60 * 1000);
+    } else {
+      const dados = exclusoesCanal.get(executor.id);
+      dados.count++;
+      exclusoesCanal.set(executor.id, dados);
+
+      if (dados.count >= 4) {
+        const membro = await guild.members.fetch(executor.id).catch(() => null);
+        if (membro && membro.bannable) {
+          await membro.ban({
+            reason: "Excluiu 4 ou mais canais em curto período",
+          });
+          const canalLogs = await client.channels.fetch(CANAL_LOGS).catch(() => null);
+          if (canalLogs?.isTextBased()) {
+            canalLogs.send(`🚨 Usuário ${executor.tag} banido por excluir vários canais.`);
+          }
+        }
+        exclusoesCanal.delete(executor.id);
+      }
+    }
+  } catch (error) {
+    console.error("Erro no evento ChannelDelete:", error);
+  }
+});
+
 client.on("messageCreate", async (msg) => {
   if (msg.author.bot) return;
 
@@ -164,10 +193,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return;
     }
 
-    if (
-      interaction.isModalSubmit() &&
-      interaction.customId === "formulario_entrada"
-    ) {
+    if (interaction.isModalSubmit() && interaction.customId === "formulario_entrada") {
       const nome = interaction.fields.getTextInputValue("nome");
       const idade = interaction.fields.getTextInputValue("idade");
       const servidor = interaction.fields.getTextInputValue("servidor");
@@ -210,8 +236,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
     if (
       interaction.isButton() &&
-      (interaction.customId === "aprovar_form" ||
-        interaction.customId === "reprovar_form")
+      (interaction.customId === "aprovar_form" || interaction.customId === "reprovar_form")
     ) {
       const embed = interaction.message.embeds[0];
       const userId = embed?.footer?.text?.match(/\d+/)?.[0];
@@ -221,9 +246,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           ephemeral: true,
         });
 
-      const membro = await interaction.guild.members
-        .fetch(userId)
-        .catch(() => null);
+      const membro = await interaction.guild.members.fetch(userId).catch(() => null);
       if (!membro)
         return interaction.reply({
           content: "❌ Membro não encontrado.",
@@ -237,10 +260,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         });
       }
 
-      const nomeFormatado = membro.user.username
-        .toLowerCase()
-        .replace(/[^a-z0-9]/g, "-")
-        .slice(0, 20);
+      const nomeFormatado = membro.user.username.toLowerCase().replace(/[^a-z0-9]/g, "-").slice(0, 20);
       const canalCriado = await interaction.guild.channels.create({
         name: `👑・${nomeFormatado}`,
         type: ChannelType.GuildText,
@@ -279,9 +299,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       if (interaction.customId === "aprovar_form") {
         await membro.roles.add(CARGO_APROVADO);
-        await canalCriado.send(
-          `🎉 Parabéns ${membro}, você foi aprovado para a Imperial Group!`
-        );
+        await canalCriado.send(`🎉 Parabéns ${membro}, você foi aprovado para a Imperial Group!`);
         await interaction.reply({
           content: "✅ Usuário aprovado e canal criado!",
           ephemeral: true,
@@ -290,9 +308,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       if (interaction.customId === "reprovar_form") {
         await membro.roles.add(CARGO_REPROVADO);
-        await canalCriado.send(
-          `📪 Olá ${membro}, infelizmente seu pedido foi reprovado. Qualquer dúvida, fale com a staff.`
-        );
+        await canalCriado.send(`📪 Olá ${membro}, infelizmente seu pedido foi reprovado. Qualquer dúvida, fale com a staff.`);
         await interaction.reply({
           content: "❌ Usuário reprovado e canal criado.",
           ephemeral: true,
@@ -306,9 +322,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const user = interaction.user;
 
       const ticketsAbertos = guild.channels.cache.filter(
-        (c) =>
-          c.parentId === CATEGORIA_TICKETS &&
-          c.name === `ticket-min-${user.id}`
+        (c) => c.parentId === CATEGORIA_TICKETS && c.name === `ticket-min-${user.id}`
       );
       if (ticketsAbertos.size > 0) {
         return interaction.reply({
