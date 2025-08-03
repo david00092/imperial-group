@@ -19,11 +19,12 @@ require("dotenv").config();
 
 const TOKEN = process.env.TOKEN;
 const CANAL_LOGS = process.env.CANAL_LOGS;
-const CANAL_SOLICITACOES = process.env.CANAL_SOLICITACOES; // novo canal para solicitações
+const CANAL_SOLICITACOES = process.env.CANAL_SOLICITACOES; // canal para solicitações
 const CARGO_APROVADO = process.env.CARGO_APROVADO;
 const CARGO_REPROVADO = process.env.CARGO_REPROVADO;
 const CARGO_STAFF = process.env.CARGO_STAFF;
-const CARGO_APROVADOR = process.env.CARGO_APROVADOR; // cargo que pode aprovar/reprovar solicitações
+const CARGO_APROVADOR = process.env.CARGO_APROVADOR; // cargo que pode aprovar/reprovar formulários e solicitações
+const CARGO_SOLICITADOR = process.env.CARGO_SOLICITADOR; // cargo que pode enviar solicitações (!adicionar)
 const CATEGORIA_CANAIS = process.env.CATEGORIA_CANAIS;
 const CATEGORIA_TICKETS = process.env.CATEGORIA_TICKETS;
 const CARGO_AUTOROLE = process.env.CARGO_AUTOROLE;
@@ -31,9 +32,7 @@ const PORT = process.env.PORT || 3000;
 
 const app = express();
 app.get("/", (req, res) => res.send("Bot Imperial Group online."));
-app.listen(PORT, () =>
-  console.log(`🟢 Servidor HTTP ativo na porta ${PORT}.`)
-);
+app.listen(PORT, () => console.log(`🟢 Servidor HTTP ativo na porta ${PORT}.`));
 
 const client = new Client({
   intents: [
@@ -174,9 +173,9 @@ client.on("messageCreate", async (msg) => {
     await msg.react("✅");
   }
 
-  // --- NOVO COMANDO !adicionar ---
+  // Comando !adicionar - somente para cargo solicitador
   if (msg.content.toLowerCase().startsWith("!adicionar")) {
-    if (!msg.member.roles.cache.has(CARGO_APROVADOR)) {
+    if (!msg.member.roles.cache.has(CARGO_SOLICITADOR)) {
       return msg.reply("❌ Você não tem permissão para usar este comando.");
     }
 
@@ -343,7 +342,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           ephemeral: true,
         });
 
-      if (!interaction.member.roles.cache.has(CARGO_STAFF)) {
+      if (!interaction.member.roles.cache.has(CARGO_APROVADOR)) {
         return interaction.reply({
           content: "❌ Você não tem permissão para isso.",
           ephemeral: true,
@@ -438,9 +437,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         if (canalLogs?.isTextBased()) {
           const logEmbed = new EmbedBuilder()
             .setTitle("✅ Formulário aprovado")
-            .setDescription(
-              `Usuário ${membro} aprovado por ${interaction.user}`
-            )
+            .setDescription(`Usuário ${membro} aprovado por ${interaction.user}`)
             .setColor("Green")
             .setTimestamp();
           canalLogs.send({ embeds: [logEmbed] });
@@ -461,9 +458,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         if (canalLogs?.isTextBased()) {
           const logEmbed = new EmbedBuilder()
             .setTitle("❌ Formulário reprovado")
-            .setDescription(
-              `Usuário ${membro} reprovado por ${interaction.user}`
-            )
+            .setDescription(`Usuário ${membro} reprovado por ${interaction.user}`)
             .setColor("Red")
             .setTimestamp();
           canalLogs.send({ embeds: [logEmbed] });
@@ -553,9 +548,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
 
       const embed = new EmbedBuilder()
         .setTitle("🎫 Ticket aberto")
-        .setDescription(
-          `Olá ${user}, a equipe da Imperial Group vai te ajudar aqui. Aguarde um momento!`
-        )
+        .setDescription(`Olá ${user}, a equipe da Imperial Group vai te ajudar aqui. Aguarde um momento!`)
         .setColor("Blue")
         .setTimestamp();
 
