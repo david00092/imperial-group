@@ -205,7 +205,8 @@ client.on(Events.InteractionCreate, async (interaction) => {
         .addFields(
           { name: "👤 Nome", value: nome },
           { name: "🎂 Idade", value: idade },
-          { name: "🌍 Servidor de origem", value: servidor },
+          { name: "🌍 Servidor que você pertence a staff
+            ", value: servidor },
           { name: "📝 Motivo", value: motivo }
         )
         .setFooter({ text: `ID: ${interaction.user.id}` })
