@@ -149,6 +149,29 @@ client.on("messageCreate", async (msg) => {
 
     await msg.channel.send({ embeds: [embed], components: [row] });
   }
+
+  if (msg.content.startsWith("!atualizações")) {
+    if (!msg.member.roles.cache.has(CARGO_STAFF)) {
+      return msg.reply("❌ Você não tem permissão para enviar atualizações.");
+    }
+
+    const args = msg.content.split(" ").slice(1).join(" ");
+    if (!args) {
+      return msg.reply("❌ Escreva a mensagem de atualizações após o comando.");
+    }
+
+    const embed = new EmbedBuilder()
+      .setTitle("📢 Atualizações – Imperial Group")
+      .setDescription(args)
+      .setColor("#FFD700")
+      .setThumbnail(msg.guild.iconURL())
+      .setFooter({ text: `Anunciado por ${msg.author.tag}`, iconURL: msg.author.displayAvatarURL() })
+      .setTimestamp();
+
+    await msg.channel.send({ embeds: [embed] });
+    await msg.react("✅");
+  }
+
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
