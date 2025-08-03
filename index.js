@@ -19,12 +19,9 @@ require("dotenv").config();
 
 const TOKEN = process.env.TOKEN;
 const CANAL_LOGS = process.env.CANAL_LOGS;
-const CANAL_SOLICITACOES = process.env.CANAL_SOLICITACOES; // canal para solicitações
 const CARGO_APROVADO = process.env.CARGO_APROVADO;
 const CARGO_REPROVADO = process.env.CARGO_REPROVADO;
 const CARGO_STAFF = process.env.CARGO_STAFF;
-const CARGO_APROVADOR = process.env.CARGO_APROVADOR; // cargo que pode aprovar/reprovar formulários e solicitações
-const CARGO_SOLICITADOR = process.env.CARGO_SOLICITADOR; // cargo que pode enviar solicitações (!adicionar)
 const CATEGORIA_CANAIS = process.env.CATEGORIA_CANAIS;
 const CATEGORIA_TICKETS = process.env.CATEGORIA_TICKETS;
 const CARGO_AUTOROLE = process.env.CARGO_AUTOROLE;
@@ -32,7 +29,9 @@ const PORT = process.env.PORT || 3000;
 
 const app = express();
 app.get("/", (req, res) => res.send("Bot Imperial Group online."));
-app.listen(PORT, () => console.log(`🟢 Servidor HTTP ativo na porta ${PORT}.`));
+app.listen(PORT, () =>
+  console.log(`🟢 Servidor HTTP ativo na porta ${PORT}.`)
+);
 
 const client = new Client({
   intents: [
@@ -173,69 +172,6 @@ client.on("messageCreate", async (msg) => {
     await msg.react("✅");
   }
 
-  // Comando !adicionar - somente para cargo solicitador
-  if (msg.content.toLowerCase().startsWith("!adicionar")) {
-    if (!msg.member.roles.cache.has(CARGO_SOLICITADOR)) {
-      return msg.reply("❌ Você não tem permissão para usar este comando.");
-    }
-
-    const args = msg.content.trim().split(/ +/).slice(1);
-    if (args.length < 4) {
-      return msg.reply(
-        "❌ Uso correto: `!adicionar <id> <nome da solicitação> <quantidade> <motivo>`"
-      );
-    }
-
-    const [id, ...rest] = args;
-    const qtdIndex = rest.findIndex((arg) => !isNaN(arg));
-    if (qtdIndex === -1) {
-      return msg.reply(
-        "❌ Por favor, informe a quantidade como um número válido."
-      );
-    }
-
-    const nome = rest.slice(0, qtdIndex).join(" ");
-    const quantidade = rest[qtdIndex];
-    const motivo = rest.slice(qtdIndex + 1).join(" ");
-
-    if (!nome || !quantidade || !motivo) {
-      return msg.reply(
-        "❌ Uso correto: `!adicionar <id> <nome da solicitação> <quantidade> <motivo>`"
-      );
-    }
-
-    const canalSolicitacoes = await client.channels.fetch(CANAL_SOLICITACOES).catch(() => null);
-    if (!canalSolicitacoes?.isTextBased()) {
-      return msg.reply("❌ Canal de solicitações não encontrado ou inválido.");
-    }
-
-    const embed = new EmbedBuilder()
-      .setTitle(`📩 Nova Solicitação: ${nome}`)
-      .addFields(
-        { name: "ID", value: id, inline: true },
-        { name: "Quantidade", value: quantidade, inline: true },
-        { name: "Motivo", value: motivo }
-      )
-      .setAuthor({ name: msg.author.tag, iconURL: msg.author.displayAvatarURL() })
-      .setColor("#FF004C")
-      .setTimestamp();
-
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId("aprovar_solicitacao")
-        .setLabel("✅ Aprovar")
-        .setStyle(ButtonStyle.Success),
-
-      new ButtonBuilder()
-        .setCustomId("reprovar_solicitacao")
-        .setLabel("❌ Reprovar")
-        .setStyle(ButtonStyle.Danger)
-    );
-
-    await canalSolicitacoes.send({ embeds: [embed], components: [row] });
-
-    await msg.reply("✅ Solicitação enviada para análise.");
-  }
 });
 
 client.on(Events.InteractionCreate, async (interaction) => {
@@ -322,7 +258,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       return;
     }
 
-    // APROVAR / REPROVAR FORMULÁRIO
+    // APROVAR / REPROVAR
     if (
       interaction.isButton() &&
       (interaction.customId === "aprovar_form" || interaction.customId === "reprovar_form")
@@ -342,7 +278,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
           ephemeral: true,
         });
 
-      if (!interaction.member.roles.cache.has(CARGO_APROVADOR)) {
+      if (!interaction.member.roles.cache.has(CARGO_STAFF)) {
         return interaction.reply({
           content: "❌ Você não tem permissão para isso.",
           ephemeral: true,
@@ -437,7 +373,9 @@ client.on(Events.InteractionCreate, async (interaction) => {
         if (canalLogs?.isTextBased()) {
           const logEmbed = new EmbedBuilder()
             .setTitle("✅ Formulário aprovado")
-            .setDescription(`Usuário ${membro} aprovado por ${interaction.user}`)
+            .setDescription(
+              `Usuário ${membro} aprovado por ${interaction.user}`
+            )
             .setColor("Green")
             .setTimestamp();
           canalLogs.send({ embeds: [logEmbed] });
@@ -458,40 +396,15 @@ client.on(Events.InteractionCreate, async (interaction) => {
         if (canalLogs?.isTextBased()) {
           const logEmbed = new EmbedBuilder()
             .setTitle("❌ Formulário reprovado")
-            .setDescription(`Usuário ${membro} reprovado por ${interaction.user}`)
+            .setDescription(
+              `Usuário ${membro} reprovado por ${interaction.user}`
+            )
             .setColor("Red")
             .setTimestamp();
           canalLogs.send({ embeds: [logEmbed] });
         }
       }
 
-      return;
-    }
-
-    // APROVAR / REPROVAR SOLICITAÇÃO via botão
-    if (
-      interaction.isButton() &&
-      (interaction.customId === "aprovar_solicitacao" || interaction.customId === "reprovar_solicitacao")
-    ) {
-      if (!interaction.member.roles.cache.has(CARGO_APROVADOR)) {
-        return interaction.reply({
-          content: "❌ Você não tem permissão para realizar essa ação.",
-          ephemeral: true,
-        });
-      }
-
-      const aprovado = interaction.customId === "aprovar_solicitacao";
-
-      const embed = EmbedBuilder.from(interaction.message.embeds[0])
-        .setFooter({ text: `Solicitação ${aprovado ? "APROVADA" : "REPROVADA"} por ${interaction.user.tag}` })
-        .setColor(aprovado ? "Green" : "Red");
-
-      await interaction.message.edit({ embeds: [embed], components: [] });
-
-      await interaction.reply({
-        content: `Você ${aprovado ? "aprovou" : "reprovou"} a solicitação.`,
-        ephemeral: true,
-      });
       return;
     }
 
@@ -505,7 +418,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       );
       if (ticketsAbertos.size > 0) {
         return interaction.reply({
-          content: `❌ Você já tem um ticket aberto: ${ticketsAbertos.first()}`,
+          content: "Você já possui um ticket aberto!",
           ephemeral: true,
         });
       }
@@ -520,7 +433,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             deny: [PermissionsBitField.Flags.ViewChannel],
           },
           {
-            id: CARGO_STAFF,
+            id: user.id,
             allow: [
               PermissionsBitField.Flags.ViewChannel,
               PermissionsBitField.Flags.SendMessages,
@@ -528,7 +441,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
             ],
           },
           {
-            id: user.id,
+            id: CARGO_STAFF,
             allow: [
               PermissionsBitField.Flags.ViewChannel,
               PermissionsBitField.Flags.SendMessages,
@@ -546,34 +459,106 @@ client.on(Events.InteractionCreate, async (interaction) => {
         ],
       });
 
-      const embed = new EmbedBuilder()
-        .setTitle("🎫 Ticket aberto")
-        .setDescription(`Olá ${user}, a equipe da Imperial Group vai te ajudar aqui. Aguarde um momento!`)
+      const fecharRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+          .setCustomId("fechar_ticket")
+          .setLabel("🔒 Fechar Ticket")
+          .setStyle(ButtonStyle.Danger)
+      );
+
+      const embedTicket = new EmbedBuilder()
+        .setTitle("🎫 Ticket criado")
+        .setDescription(`Olá ${user}, seu ticket foi criado! Aguarde que a equipe irá te atender.`)
         .setColor("Blue")
         .setTimestamp();
 
-      await canalTicket.send({ content: `${user}`, embeds: [embed] });
+      await canalTicket.send({
+        embeds: [embedTicket],
+        components: [fecharRow],
+      });
 
       await interaction.reply({
-        content: `✅ Ticket criado: ${canalTicket}`,
+        content: `✅ Seu ticket foi criado: ${canalTicket}`,
         ephemeral: true,
       });
+      return;
     }
 
-    // EXCLUIR CANAL APROVADO via botão
-    if (interaction.isButton() && interaction.customId === "excluir_canal_aprovado") {
-      const canal = interaction.channel;
-      if (!canal.name.startsWith("👑・")) {
+    // FECHAR TICKET
+    if (interaction.isButton() && interaction.customId === "fechar_ticket") {
+      const channel = interaction.channel;
+
+      if (channel.parentId !== CATEGORIA_TICKETS) {
         return interaction.reply({
-          content: "❌ Este comando só pode ser usado no canal aprovado.",
+          content: "❌ Este canal não é um ticket.",
           ephemeral: true,
         });
       }
-      await interaction.reply("🗑️ Canal será excluído em 5 segundos...");
-      setTimeout(() => canal.delete().catch(() => {}), 5000);
+
+      const ticketOwnerId = channel.name.split("ticket-min-")[1];
+      if (
+        !interaction.member.roles.cache.has(CARGO_STAFF) &&
+        interaction.user.id !== ticketOwnerId
+      ) {
+        return interaction.reply({
+          content: "❌ Você não tem permissão para fechar este ticket.",
+          ephemeral: true,
+        });
+      }
+
+      await interaction.reply({
+        content: "🔒 Ticket será fechado em 5 segundos.",
+        ephemeral: true,
+      });
+
+      setTimeout(async () => {
+        await channel.delete().catch(() => null);
+      }, 5000);
+
+      return;
     }
-  } catch (err) {
-    console.error("Erro no InteractionCreate:", err);
+
+    // EXCLUIR CANAL APROVADO
+    if (interaction.isButton() && interaction.customId === "excluir_canal_aprovado") {
+      const channel = interaction.channel;
+
+      // Só permitir quem tem cargo staff ou dono do canal (o usuário que tem permissão no canal)
+      if (
+        !interaction.member.roles.cache.has(CARGO_STAFF) &&
+        !channel.permissionOverwrites.cache.some(
+          (perm) =>
+            perm.id === interaction.user.id &&
+            perm.allow.has(PermissionsBitField.Flags.ViewChannel)
+        )
+      ) {
+        return interaction.reply({
+          content: "❌ Você não tem permissão para excluir este canal.",
+          ephemeral: true,
+        });
+      }
+
+      await interaction.reply({
+        content: "🗑️ Canal será excluído em 5 segundos.",
+        ephemeral: true,
+      });
+
+      setTimeout(async () => {
+        await channel.delete().catch(() => null);
+      }, 5000);
+    }
+  } catch (error) {
+    console.error("Erro na interação:", error);
+    if (interaction.replied || interaction.deferred) {
+      await interaction.followUp({
+        content: "❌ Ocorreu um erro interno.",
+        ephemeral: true,
+      });
+    } else {
+      await interaction.reply({
+        content: "❌ Ocorreu um erro interno.",
+        ephemeral: true,
+      });
+    }
   }
 });
 
