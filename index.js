@@ -118,7 +118,7 @@ client.on("messageCreate", async (msg) => {
     const embed = new EmbedBuilder()
       .setTitle("👑 Junte-se à Imperial Group")
       .setDescription("Clique no botão abaixo para preencher o formulário!")
-      .setColor("Red")
+      .setColor("#FF004C")
       .setThumbnail(msg.guild.iconURL())
       .setTimestamp();
 
