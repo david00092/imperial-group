@@ -118,7 +118,7 @@ client.on("messageCreate", async (msg) => {
     const embed = new EmbedBuilder()
       .setTitle("👑 Junte-se à Imperial Group")
       .setDescription("Clique no botão abaixo para preencher o formulário!")
-      .setColor("#FF004C")
+      .setColor("#092666")
       .setThumbnail(msg.guild.iconURL())
       .setTimestamp();
 
@@ -163,7 +163,7 @@ client.on("messageCreate", async (msg) => {
     const embed = new EmbedBuilder()
       .setTitle("📢 Atualizações – Imperial Group")
       .setDescription(args)
-      .setColor("#FF004C")
+      .setColor("#092666")
       .setThumbnail(msg.guild.iconURL())
       .setFooter({ text: `Anunciado por ${msg.author.tag}`, iconURL: msg.author.displayAvatarURL() })
       .setTimestamp();
